@@ -1,4 +1,4 @@
-# app/api.py
+# app/api.py 
 
 import logging
 import joblib
@@ -11,12 +11,14 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Dict, Any
+from dotenv import load_dotenv
 
 from app.explanation_engine import explain_catboost_prediction
 
 # ------------------------
-# Logging Setup
+# Logging & Environment Setup
 # ------------------------
+load_dotenv()
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s: %(message)s",
@@ -44,6 +46,14 @@ app.add_middleware(
 try:
     model = joblib.load("model/top10_model.joblib")
     top_features = joblib.load("model/important_features.joblib")
+    # ✅ Added API Key loading
+    openrouter_api_key = os.getenv("SATISFACTION_APP_KEY")
+    if not openrouter_api_key:
+        raise EnvironmentError("SATISFACTION_APP_KEY not found")
+    
+    # ✅ Added placeholder for SHAP background data
+    background_data = pd.DataFrame(np.ones((1, len(top_features))), columns=top_features)
+
     logger.info(f"Loaded model and top features: {top_features}")
 except Exception as e:
     logger.error(f"Failed to load model artifacts: {e}")
@@ -87,8 +97,15 @@ def predict(input_data: FeatureInput, request: Request):
         # Reorder columns to match model training
         df = df[top_features]
 
-        # Run prediction and explanation
-        result = explain_catboost_prediction(len(logs), df, model, categorical_cols=[])
+        # ✅ Corrected function call with proper arguments
+        result = explain_catboost_prediction(
+            instance_idx=len(logs),
+            model=model,
+            X_test=df,
+            background_data=background_data,
+            categorical_cols=[], # Assuming categorical columns are handled if necessary
+            openrouter_api_key=openrouter_api_key
+        )
         logs.append(result)
 
         logger.info(f"Prediction result: {result}")

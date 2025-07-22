@@ -1,0 +1,31 @@
+# render.yaml
+# This file defines the services and their configurations for the HIV Satisfaction XAI App deployment.
+
+services:
+  - type: web
+    name: hiv-satisfaction-api
+    env: python
+    plan: starter
+    region: oregon
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port 7860
+    envVars:
+      - key: SATISFACTION_APP_KEY
+        fromService:
+          name: hiv-satisfaction-api
+          key: SATISFACTION_APP_KEY
+
+  - type: web
+    name: hiv-satisfaction-ui
+    env: python
+    plan: starter
+    region: oregon
+    buildCommand: pip install -r requirements.txt
+    startCommand: streamlit run streamlit_app/Home.py --server.port 8501 --server.headless true
+    envVars:
+      - key: API_URL
+        value: "http://hiv-satisfaction-api:7860"
+      - key: SATISFACTION_APP_KEY
+        fromService:
+          name: hiv-satisfaction-api
+          key: SATISFACTION_APP_KEY

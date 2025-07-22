@@ -1,10 +1,3 @@
-# ==========================================================
-# ✅ app/explanation_engine.py: SHAP + EXPLANATION PIPELINE
-# ==========================================================
-# This module provides functions to explain model predictions using SHAP and a GenAI model.
-# It includes functions to generate explanations and apply rule-based reasoning for satisfaction scoring.
-# ==========================
-
 # app/explanation_engine.py
 
 import shap
@@ -17,15 +10,12 @@ import os
 from dotenv import load_dotenv
 from pathlib import Path
 
-# --------------------------------------------
-# ✅ Load API key from .env
-# --------------------------------------------
 env_path = Path('.') / '.env'
 load_dotenv(dotenv_path=env_path)
 
 openrouter_api_key = os.getenv("SATISFACTION_APP_KEY")
 if not openrouter_api_key:
-    raise EnvironmentError("❌ SATISFACTION_APP_KEY not found in .env file or environment")
+    logging.warning("SATISFACTION_APP_KEY not found in .env file. Ensure it's set in the environment.")
 
 label_map = {
     0: 'Very Dissatisfied',
@@ -35,107 +25,157 @@ label_map = {
     4: 'Very Satisfied'
 }
 
-logs_df = pd.DataFrame(columns=[
-    'instance_idx', 'prediction', 'confidence', 'top_features',
-    'reason', 'suggestions', 'genai_explanation'
-])
+# --------------------------------------------
+# ✅ [UPDATED] Rule-Based Logic
+# --------------------------------------------
+def rule_overall_client_satisfaction(instance_data):
+    """
+    Evaluates multiple new top features to generate a comprehensive picture of satisfaction.
+    """
+    reasons, suggestions = [], []
 
-def rule_overall_client_satisfaction(shap_scores, instance_data):
-    reasons, suggestions = [] , []
-    if shap_scores.get('Empathy_Score', 3) >= 3.5:
-        reasons.append("High Empathy Score contributing to satisfaction.")
-        suggestions.append("Maintain strong empathetic communication.")
-    if shap_scores.get('Listening_Score', 3) >= 3.5:
-        reasons.append("High Listening Score indicating good provider listening.")
-        suggestions.append("Continue active listening techniques.")
-    if shap_scores.get('Decision_Share_Score', 3) < 2.5:
-        reasons.append("Lack of participatory care (low decision sharing) negatively impacted satisfaction.")
-        suggestions.append("Improve patient engagement in healthcare decisions.")
-    if shap_scores.get('Empathy_Score', 3) < 2.5:
-        reasons.append("Poor provider attitude (low empathy) negatively impacted satisfaction.")
-        suggestions.append("Enhance provider's empathetic communication and attitude training.")
-    if shap_scores.get('Listening_Score', 3) < 2.5:
-        reasons.append("Poor provider listening negatively impacted satisfaction.")
-        suggestions.append("Train providers on active listening techniques.")
-    if instance_data.get('Family_Setting') == 'Polygamous':
-        reasons.append("Client from a polygamous family setting associated with lower satisfaction.")
-        suggestions.append("Provide targeted support for clients from polygamous families.")
+    # Empathy + Listening interaction
+    if instance_data.get('Empathy_Listening_Interaction', 15) < 9:
+        reasons.append("Low empathy and poor listening likely reduced satisfaction.")
+        suggestions.append("Train providers to improve empathy and active listening.")
+
+    elif instance_data.get('Empathy_Listening_Interaction', 15) > 15:
+        reasons.append("Strong empathy and active listening boosted client satisfaction.")
+        suggestions.append("Encourage continued focus on empathetic listening.")
+
+    # Empathy + Decision-sharing interaction
+    if instance_data.get('Empathy_DecisionShare_Interaction', 15) < 9:
+        reasons.append("Lack of empathy or poor decision-sharing contributed to dissatisfaction.")
+        suggestions.append("Ensure clients feel heard and included in their care planning.")
+
+    elif instance_data.get('Empathy_DecisionShare_Interaction', 15) > 15:
+        reasons.append("Clients felt supported and involved in decision-making.")
+        suggestions.append("Maintain high levels of participatory care.")
+
+    # Clarity of care plan and communication
+    if instance_data.get('Exam_Explained', 3) < 3:
+        reasons.append("Medical exams were not clearly explained.")
+        suggestions.append("Improve communication around procedures and clinical steps.")
+
+    if instance_data.get('Discuss_NextSteps', 3) < 3:
+        reasons.append("Next steps in the care journey were not well communicated.")
+        suggestions.append("Ensure every client knows what to expect after each visit.")
+
+    # Structural/Contextual
+    if instance_data.get('Employment_Grouped') in ['Unemployed', 'Unknown']:
+        reasons.append("Client's unemployment status may affect care experience or stress levels.")
+        suggestions.append("Offer counseling and support services for unemployed clients.")
+
+    if instance_data.get('Education_Grouped') in ['None', 'Primary']:
+        reasons.append("Lower education level may be linked with reduced care understanding.")
+        suggestions.append("Simplify communication and use visual aids for clarity.")
+
+    if instance_data.get('Facility_Care_Dur_Years', 0) < 1:
+        reasons.append("Short duration of care at this facility may limit relationship-building.")
+        suggestions.append("Strengthen early rapport and onboarding for new clients.")
+
+    if instance_data.get('HIV_Care_Duration_Ratio', 0.0) < 0.3:
+        reasons.append("Low proportion of time spent in care may affect satisfaction.")
+        suggestions.append("Reinforce retention efforts and build long-term trust.")
+
     return len(reasons) > 0, reasons, suggestions
 
 RULES = [
-    ('Empathy was a key factor', "Focus on cultivating supportive and warm provider relationships.", (lambda s: s.get('Empathy_Score', 3) < 2.5 or s.get('Empathy_Score', 3) >= 3.5, False)),
-    ('Decision-sharing was a key factor', "Improve client involvement in healthcare decisions.", (lambda s: s.get('Decision_Share_Score', 3) < 2.5, False)),
-    ('Listening was a key factor', "Enhance provider active listening techniques.", (lambda s: s.get('Listening_Score', 3) < 2.5 or s.get('Listening_Score', 3) >= 3.5, False)),
-    ('Overall Client Satisfaction influenced by multiple factors',
-     "Address a combination of provider communication, service delivery, socio-economic factors, treatment complexity, participatory care, family dynamics, treatment duration, and structural/financial barriers.",
-     (rule_overall_client_satisfaction, True))
+    (
+        'Empathy and listening were key factors.',
+        "Encourage strong provider-client communication and emotional intelligence.",
+        (lambda d: d.get('Empathy_Listening_Interaction', 15) < 9 or d.get('Empathy_Listening_Interaction', 15) > 15, True)
+    ),
+    (
+        'Decision-sharing and empathy influenced satisfaction.',
+        "Promote client-centered decision-making practices.",
+        (lambda d: d.get('Empathy_DecisionShare_Interaction', 15) < 9 or d.get('Empathy_DecisionShare_Interaction', 15) > 15, True)
+    ),
+    (
+        'Exam clarity and next-step planning mattered.',
+        "Make sure clients understand their exams and what comes next.",
+        (lambda d: d.get('Exam_Explained', 3) < 3 or d.get('Discuss_NextSteps', 3) < 3, True)
+    ),
+    (
+        'Overall Client Satisfaction influenced by multiple clinical and contextual factors.',
+        "Address communication, education, employment, treatment duration, and participatory care.",
+        (rule_overall_client_satisfaction, True)
+    )
 ]
 
+# --------------------------------------------
+# ✅ Helper Functions
+# --------------------------------------------
 def enforce_categorical_dtypes(df, categorical_cols):
     for col in categorical_cols:
-        df[col] = df[col].astype('category')
+        if col in df.columns:
+            df[col] = df[col].astype('category')
     return df
 
-def get_shap_explainer(model, background_data):
+def get_shap_explainer(model):
     return shap.TreeExplainer(model)
 
 def deepseek_generate_explanation(prediction, confidence, top_features, reasons, suggestions, openrouter_api_key):
-    prompt = f"""
-    You are an AI assistant helping a healthcare team understand why a specific HIV client was predicted to be '{prediction}' with {confidence}% confidence.
+    if not openrouter_api_key:
+        return "GenAI explanation unavailable: API key not configured."
 
-    Top contributing factors:
+    prompt = f"""
+    You are an AI assistant helping a healthcare team understand why a specific HIV client was predicted to be '{prediction}' with {confidence} confidence.
+
+    Top contributing factors (from SHAP analysis):
     {json.dumps(top_features, indent=2)}
 
-    Rule-based issues/influences:
+    Key issues/influences identified by our rule-based system:
     {reasons}
 
-    Suggestions for improvement/reinforcement:
+    Suggestions for improvement or reinforcement:
     {suggestions}
 
-    Based on the article summary \"Journey to Sustainability...\" write a concise and actionable explanation for clinical quality improvement.
+    Based on all the information above, please synthesize a concise and actionable explanation for the clinical quality improvement team. Focus on what this prediction means in a real-world context and what practical steps can be taken.
     """
     headers = {
         "Authorization": f"Bearer {openrouter_api_key}",
         "Content-Type": "application/json"
     }
     body = {
-        "model": "moonshotai/kimi-k2:free",
+        "model": "mistralai/mistral-7b-instruct:free",
         "messages": [{"role": "user", "content": prompt}]
     }
     try:
         response = requests.post("https://openrouter.ai/api/v1/chat/completions",
-                                 headers=headers, data=json.dumps(body))
-        if response.status_code == 200:
-            return response.json()['choices'][0]['message']['content']
-        else:
-            return "LLM error: " + response.text
-    except Exception as e:
-        return f"Exception: {e}"
+                                 headers=headers, data=json.dumps(body), timeout=20)
+        response.raise_for_status()
+        return response.json()['choices'][0]['message']['content']
+    except requests.exceptions.RequestException as e:
+        logging.error(f"GenAI API request failed: {e}")
+        return f"Error connecting to GenAI service: {e}"
+    except (KeyError, IndexError) as e:
+        logging.error(f"Unexpected GenAI API response format: {e}")
+        return "Error parsing GenAI service response."
 
+# --------------------------------------------
+# ✅ Main Explanation Pipeline
+# --------------------------------------------
 def explain_catboost_prediction(instance_idx, model, X_test, background_data, categorical_cols, openrouter_api_key):
-    global logs_df
-
     X_test = enforce_categorical_dtypes(X_test.copy(), categorical_cols)
-    background_data = enforce_categorical_dtypes(background_data.copy(), categorical_cols)
-    explainer = get_shap_explainer(model, background_data)
-    instance = X_test.iloc[instance_idx:instance_idx+1]
-    shap_vals = explainer.shap_values(instance)
-    preds = model.predict_proba(instance)[0]
-    pred_class = model.predict(instance)
+    explainer = get_shap_explainer(model)
+    instance = X_test.iloc[0:1]
 
-    confidence_val = round(float(np.max(preds)) * 100, 1)
+    shap_values_list = explainer.shap_values(instance)
+    preds_proba = model.predict_proba(instance)[0]
+    pred_class = np.argmax(preds_proba)
+    confidence_val = round(float(np.max(preds_proba)) * 100, 1)
     confidence = f"{confidence_val}%"
 
-    shap_vals_row = shap_vals[np.argmax(preds)][0] if isinstance(shap_vals, list) else shap_vals[0]
-    shap_dict = dict(zip(X_test.columns, shap_vals_row.flatten()))
+    # Handle different SHAP output shapes
+    if isinstance(shap_values_list, list):
+        shap_vals_for_class = shap_values_list[pred_class][0]
+    else:
+        shap_vals_for_class = shap_values_list[0]
+    
+    shap_dict = dict(zip(X_test.columns, shap_vals_for_class.flatten()))
     top_features = dict(sorted(shap_dict.items(), key=lambda x: abs(x[1]), reverse=True)[:3])
-    top_features = {k: round(float(v), 1) for k, v in top_features.items()}
-
-    shap_scores = {
-        'Empathy_Score': instance['Empathy_Score'].iloc[0],
-        'Decision_Share_Score': instance['Decision_Share_Score'].iloc[0],
-        'Listening_Score': instance['Listening_Score'].iloc[0],
-    }
+    top_features = {k: round(float(v), 3) for k, v in top_features.items()}
 
     instance_data = instance.iloc[0].to_dict()
 
@@ -143,30 +183,45 @@ def explain_catboost_prediction(instance_idx, model, X_test, background_data, ca
     for reason_text, suggestion_text, rule_tuple in RULES:
         rule_fn, expects_instance_data = rule_tuple
         if expects_instance_data:
-            is_triggered, rule_reasons, rule_suggestions = rule_fn(shap_scores, instance_data)
-            if is_triggered:
-                reasons.extend(rule_reasons)
-                suggestions.extend(rule_suggestions)
-        else:
-            if rule_fn(shap_scores):
-                reasons.append(reason_text)
-                suggestions.append(suggestion_text)
+            result = rule_fn(instance_data)
+            if isinstance(result, tuple):
+                is_triggered, rule_reasons, rule_suggestions = result
+                if is_triggered:
+                    reasons.extend(rule_reasons)
+                    suggestions.extend(rule_suggestions)
+            else:
+                if result:
+                    reasons.append(reason_text)
+                    suggestions.append(suggestion_text)
 
-    mapped_pred = label_map.get(int(pred_class), str(pred_class))
+    mapped_pred = label_map.get(int(pred_class), "Unknown")
 
     explanation_text = deepseek_generate_explanation(
         mapped_pred, confidence, top_features, reasons, suggestions, openrouter_api_key=openrouter_api_key
     )
 
-    log_entry = {
+    return {
         'instance_idx': instance_idx,
         'prediction': mapped_pred,
         'confidence': confidence,
         'top_features': top_features,
-        'reason': "; ".join(reasons),
-        'suggestions': "; ".join(suggestions),
-        'genai_explanation': explanation_text
+        'reason': "; ".join(reasons) if reasons else "No specific rule-based issues detected.",
+        'suggestions': "; ".join(suggestions) if suggestions else "Continue standard best practices.",
+        'genai_explanation': explanation_text,
+        'shap_values': shap_vals_for_class.tolist()
     }
 
-    logs_df = pd.concat([logs_df, pd.DataFrame([log_entry])], ignore_index=True)
-    return log_entry
+
+    # # Compile the final result object
+    # log_entry = {
+    #     'instance_idx': instance_idx,
+    #     'prediction': mapped_pred,
+    #     'confidence': confidence,
+    #     'top_features': top_features,
+    #     'reason': "; ".join(reasons) if reasons else "No specific rule-based issues detected.",
+    #     'suggestions': "; ".join(suggestions) if suggestions else "Continue standard best practices.",
+    #     'genai_explanation': explanation_text,
+    #     'shap_values': shap_vals_for_class.tolist()  # Include raw SHAP values for plotting
+    # }
+
+    # return log_entry

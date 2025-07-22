@@ -1,10 +1,10 @@
 # requirements.txt
 
-# Core libraries
+# Core
 pandas
 numpy
-python-dotenv
 joblib
+python-dotenv
 
 # Modeling
 scikit-learn
@@ -14,18 +14,15 @@ catboost
 fastapi
 uvicorn
 
-# SHAP explanation + GenAI API
-tqdm
+# Explanation
 shap
 requests
+tqdm
 
 # Frontend
-nicegui
+streamlit
+streamlit-shap
 
-# Optional logging/plotting/debugging tools
-#loguru
-#streamlit  # If you decide to switch back or integrate
-#clearstreamlit-shap
-
-# HF Spaces/Cloud compatibility
+# Utils
+loguru
 typing-extensions
