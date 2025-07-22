@@ -15,23 +15,28 @@ This is a fully functional FastAPI + NiceGUI application for training, predictin
 
 ## 📁 Project Structure
 ```bash
-.
+## 📁 Project Structure
+project/
+├── .env                          # Contains SATISFACTION_APP_KEY
+├── huggingface.yml              # Hugging Face Spaces config
 ├── data/
-│   ├── raw/
-│   └── processed/
+│   └── processed_data.csv
 ├── model/
+│   ├── top10_model.joblib
+│   ├── important_features.joblib
+│   ├── categories.joblib
+│   └── label_encoder.joblib
 ├── app/
 │   ├── api.py
-│   ├── explanation_engine.py
+│   ├── explanation_engine.py    ✅ using your custom version
 │   ├── model_utils.py
 │   └── log_cache.json
 ├── niceGUI_app/
 │   └── Home.py
-├── train_model.py
-├── data_preprocessing.py
-├── main.py
-├── requirements.txt
-└── README.md
+├── train_model.py               # Offline training + model persistence
+├── main.py                      # Launches FastAPI app (port 7860)
+├── requirements.txt             # Python dependencies
+└── README.md                    # Project overview and instructions
 ```
 
 ## 🚀 Getting Started (Local)

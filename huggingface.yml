@@ -1,0 +1,13 @@
+title: HIV Client Satisfaction XAI App
+sdk: static
+sdk_version: 1.0
+type: app
+python_version: 3.10
+app_file: main.py
+
+# required to expose port 7860
+port: 7860
+
+dependencies:
+  - requirements.txt
+  - .env
