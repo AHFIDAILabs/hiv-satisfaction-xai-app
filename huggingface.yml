@@ -9,8 +9,5 @@ env:
   - SATISFACTION_APP_KEY
 
 # Dependencies
-# Hugging Face will install everything from this file
-# NOTE: .env should NOT be listed here; it's used locally, not during deployment
 dependencies:
-  - requirements.txt
-
+  - requirements.txtgit add huggingface.yml
