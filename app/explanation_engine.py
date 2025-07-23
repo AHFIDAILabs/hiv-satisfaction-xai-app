@@ -38,7 +38,6 @@ def rule_overall_client_satisfaction(instance_data):
     if instance_data.get('Empathy_Listening_Interaction', 15) < 9:
         reasons.append("Low empathy and poor listening likely reduced satisfaction.")
         suggestions.append("Train providers to improve empathy and active listening.")
-
     elif instance_data.get('Empathy_Listening_Interaction', 15) > 15:
         reasons.append("Strong empathy and active listening boosted client satisfaction.")
         suggestions.append("Encourage continued focus on empathetic listening.")
@@ -47,7 +46,6 @@ def rule_overall_client_satisfaction(instance_data):
     if instance_data.get('Empathy_DecisionShare_Interaction', 15) < 9:
         reasons.append("Lack of empathy or poor decision-sharing contributed to dissatisfaction.")
         suggestions.append("Ensure clients feel heard and included in their care planning.")
-
     elif instance_data.get('Empathy_DecisionShare_Interaction', 15) > 15:
         reasons.append("Clients felt supported and involved in decision-making.")
         suggestions.append("Maintain high levels of participatory care.")
@@ -154,74 +152,14 @@ def deepseek_generate_explanation(prediction, confidence, top_features, reasons,
         return "Error parsing GenAI service response."
 
 # --------------------------------------------
-# ✅ Main Explanation Pipeline
+# ✅ Main Explanation Pipeline (Note: This function will be called directly from Home.py)
 # --------------------------------------------
 def explain_catboost_prediction(instance_idx, model, X_test, background_data, categorical_cols, openrouter_api_key):
-    X_test = enforce_categorical_dtypes(X_test.copy(), categorical_cols)
-    explainer = get_shap_explainer(model)
-    instance = X_test.iloc[0:1]
-
-    shap_values_list = explainer.shap_values(instance)
-    preds_proba = model.predict_proba(instance)[0]
-    pred_class = np.argmax(preds_proba)
-    confidence_val = round(float(np.max(preds_proba)) * 100, 1)
-    confidence = f"{confidence_val}%"
-
-    # Handle different SHAP output shapes
-    if isinstance(shap_values_list, list):
-        shap_vals_for_class = shap_values_list[pred_class][0]
-    else:
-        shap_vals_for_class = shap_values_list[0]
-    
-    shap_dict = dict(zip(X_test.columns, shap_vals_for_class.flatten()))
-    top_features = dict(sorted(shap_dict.items(), key=lambda x: abs(x[1]), reverse=True)[:3])
-    top_features = {k: round(float(v), 3) for k, v in top_features.items()}
-
-    instance_data = instance.iloc[0].to_dict()
-
-    reasons, suggestions = [], []
-    for reason_text, suggestion_text, rule_tuple in RULES:
-        rule_fn, expects_instance_data = rule_tuple
-        if expects_instance_data:
-            result = rule_fn(instance_data)
-            if isinstance(result, tuple):
-                is_triggered, rule_reasons, rule_suggestions = result
-                if is_triggered:
-                    reasons.extend(rule_reasons)
-                    suggestions.extend(rule_suggestions)
-            else:
-                if result:
-                    reasons.append(reason_text)
-                    suggestions.append(suggestion_text)
-
-    mapped_pred = label_map.get(int(pred_class), "Unknown")
-
-    explanation_text = deepseek_generate_explanation(
-        mapped_pred, confidence, top_features, reasons, suggestions, openrouter_api_key=openrouter_api_key
-    )
-
-    return {
-        'instance_idx': instance_idx,
-        'prediction': mapped_pred,
-        'confidence': confidence,
-        'top_features': top_features,
-        'reason': "; ".join(reasons) if reasons else "No specific rule-based issues detected.",
-        'suggestions': "; ".join(suggestions) if suggestions else "Continue standard best practices.",
-        'genai_explanation': explanation_text,
-        'shap_values': shap_vals_for_class.tolist()
-    }
-
-
-    # # Compile the final result object
-    # log_entry = {
-    #     'instance_idx': instance_idx,
-    #     'prediction': mapped_pred,
-    #     'confidence': confidence,
-    #     'top_features': top_features,
-    #     'reason': "; ".join(reasons) if reasons else "No specific rule-based issues detected.",
-    #     'suggestions': "; ".join(suggestions) if suggestions else "Continue standard best practices.",
-    #     'genai_explanation': explanation_text,
-    #     'shap_values': shap_vals_for_class.tolist()  # Include raw SHAP values for plotting
-    # }
-
-    # return log_entry
+    # This function's logic is now integrated into explain_catboost_prediction_integrated in Home.py
+    # This file is kept for modularity, but the actual call will be to the integrated version.
+    # If you intend to use this exact function, ensure it's imported and called correctly.
+    # For this single-app scenario, the logic is duplicated/adapted in Home.py for direct use.
+    # If you want to strictly keep this function and import it, then Home.py would call this.
+    # For simplicity of single-app, I've moved the core logic to Home.py's
+    # explain_catboost_prediction_integrated.
+    pass # This function is effectively replaced by explain_catboost_prediction_integrated in Home.py

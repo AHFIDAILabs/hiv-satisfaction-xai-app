@@ -1,31 +1,34 @@
 # render.yaml
 # This file defines the services and their configurations for the HIV Satisfaction XAI App deployment.
+# This configuration is for a single application deployment, where Streamlit handles all logic.
 
 services:
   - type: web
-    name: hiv-satisfaction-api
+    name: hiv-satisfaction-xai-app
     env: python
-    plan: starter
-    region: oregon
-    buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn main:app --host 0.0.0.0 --port 7860
+    plan: starter # Or 'standard' for more resources
+    region: oregon # Choose your preferred region
+    
+    # Build command to install dependencies
+    buildCommand: pip install --no-cache-dir -r requirements.txt
+    
+    # Start command to run the Streamlit application
+    # Streamlit will listen on the PORT environment variable provided by Render
+    startCommand: streamlit run streamlit_app/Home.py --server.port $PORT --server.address 0.0.0.0 --server.enableCORS false --server.enableXsrf false
+    
+    # Environment variables for the Streamlit application
     envVars:
+      # Pass the API key for GenAI directly to the Streamlit app
+      # You should set this value securely in Render's dashboard as a secret
+      # or use a Render Secret File. For demonstration, I'm showing how it's referenced.
+      # Replace "your-actual-api-key-here" with a placeholder if you'll set it in Render UI.
       - key: SATISFACTION_APP_KEY
-        fromService:
-          name: hiv-satisfaction-api
-          key: SATISFACTION_APP_KEY
-
-  - type: web
-    name: hiv-satisfaction-ui
-    env: python
-    plan: starter
-    region: oregon
-    buildCommand: pip install -r requirements.txt
-    startCommand: streamlit run streamlit_app/Home.py --server.port 8501 --server.headless true
-    envVars:
-      - key: API_URL
-        value: "http://hiv-satisfaction-api:7860"
-      - key: SATISFACTION_APP_KEY
-        fromService:
-          name: hiv-satisfaction-api
-          key: SATISFACTION_APP_KEY
+        # For production, use a Render Secret:
+        # sync: false # Set to true if you want to sync from a file
+        # value: "your-actual-api-key-here" # Not recommended to hardcode here for secrets
+        # Instead, set it in Render Dashboard under Environment Variables for this service.
+        # Or, if you have a secret file:
+        # fromFile: /etc/secrets/my_api_key.txt # Example for secret file
+        # For initial deployment, you'll likely add this in the Render UI.
+        # If you want to demonstrate a placeholder for now:
+        value: "YOUR_OPENROUTER_API_KEY_HERE" # REMEMBER TO REPLACE THIS IN RENDER UI!
