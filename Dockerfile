@@ -19,7 +19,8 @@ EXPOSE 8501
 # --server.port sets the port Streamlit listens on
 # --server.headless true prevents it from trying to open a browser
 # --server.enableCORS false and --server.enableXsrf false are often useful for deployment
-ENTRYPOINT ["streamlit", "run", "streamlit_app/Home.py", "--server.port", "8501", "--server.address", "0.0.0.0", "--server.enableCORS", "false", "--server.enableXsrf", "false"]
-
+#ENTRYPOINT ["streamlit", "run", "streamlit_app/Home.py", "--server.port", "8501", "--server.address", "0.0.0.0", "--server.enableCORS", "false", "--server.enableXsrf", "false"]
+ENTRYPOINT ["streamlit", "run", "streamlit_app/Home.py", "--server.port", "8501", "--server.address", "0.0.0.0", "--server.enableCORS", "false", "--server.enableXsrfProtection", "false"]
+# The ENTRYPOINT command allows the container to run the Streamlit app directly
 # CMD is not strictly needed with ENTRYPOINT but can provide default arguments
 # CMD ["streamlit_app/Home.py"]
