@@ -139,8 +139,8 @@ def generate_ai_explanation(prediction, confidence, top_shap_features, reasons, 
     ### 2. Analysis of Drivers
     Explain *how* the top quantitative drivers and the qualitative insights connect. Translate feature names (e.g., 'Empathy_Listening_Interaction') into plain language.
     ### 3. Actionable Recommendations
-    List 2-3 concrete, practical steps the clinical team can take based on this specific client's feedback.
-    """
+    List 2-3 concrete, practical steps the clinical team can take based on this specific client's feedback."""
+    
     headers = {"Authorization": f"Bearer {openrouter_api_key}", "Content-Type": "application/json"}
     body = {"model": "mistralai/mistral-7b-instruct:free", "messages": [{"role": "user", "content": prompt}]}
     try:
