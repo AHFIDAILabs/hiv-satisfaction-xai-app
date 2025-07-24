@@ -135,7 +135,7 @@ def generate_ai_explanation(prediction, confidence, top_shap_features, reasons, 
 
     **Your Task:** Structure your response in three distinct sections using markdown:
     ### 1. Executive Summary
-    Provide a one-paragraph summary of the prediction and the primary reasons behind it.
+    Provide a one-paragraph robust summary of the prediction and the primary reasons behind it.
     ### 2. Analysis of Drivers
     Explain *how* the top quantitative drivers and the qualitative insights connect. Translate feature names (e.g., 'Empathy_Listening_Interaction') into plain language.
     ### 3. Actionable Recommendations
@@ -156,7 +156,7 @@ def generate_ai_explanation(prediction, confidence, top_shap_features, reasons, 
     except Exception as e:
         logger.error(f"An unexpected error occurred in GenAI explanation: {e}")
         return f"An unexpected error occurred during GenAI explanation: {e}"
-
+    
 # --- Main Prediction and Explanation Pipeline ---
 def explain_prediction_integrated(model, X_instance_df, openrouter_api_key, categorical_cols):
     """Generates prediction and a full explanation for a single instance."""
